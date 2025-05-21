@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Оформление подписки на бота - официальная страница оплаты">
+    <title>Подписка на бота</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Подключаем SDK ЮKassa для встраиваемой оплаты -->
+    <script src="https://yookassa.ru/checkout-widget/v1/checkout-widget.js"></script>
+    <!-- Подключаем Telegram Mini App SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        /* Стили для скрытия модального окна по умолчанию */
+        #success-modal {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+        }
+        
+        /* Класс для явного отображения модального окна */
+        .modal-visible {
+            display: flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            z-index: 9999 !important;
+        }
+
+        /* Стили для контейнера платежной формы */
+        #payment-form-container {
+            margin: 20px 0;
+            min-height: 300px;
+        }
+        
+        /* Стили для модального окна успеха в стиле Telegram */
+        .success-content {
+            text-align: center;
+            padding: 30px 20px !important;
+            max-width: 90% !important;
+            width: 320px !important;
+            border-radius: 14px !important;
+            background-color: var(--tg-theme-bg-color, #ffffff) !important;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2) !important;
+        }
+        
+        .success-icon {
+            margin: 0 auto 20px;
+            width: 80px;
+            height: 80px;
+        }
+        
+        #successModal h2 {
+            font-size: 22px;
+            margin-bottom: 15px;
+            color: var(--tg-theme-text-color, #000000);
+        }
+        
+        #successModal p {
+            font-size: 16px;
+            margin-bottom: 25px;
+            color: var(--tg-theme-hint-color, #999999);
+        }
+        
+        .success-button {
+            width: 100%;
+            background-color: var(--tg-theme-button-color, #3390ec) !important;
+            color: var(--tg-theme-button-text-color, #ffffff) !important;
+            border-radius: 10px !important;
+            padding: 12px !important;
+            font-size: 16px !important;
+            font-weight: 500 !important;
+            cursor: pointer;
+            border: none;
+        }
+        
+        /* Стили для кнопки проверки платежа */
+        .check-payment-button {
+            display: block;
+            width: 100%;
+            background-color: var(--tg-theme-bg-color, white);
+            color: var(--tg-theme-button-color, #3390ec);
+            border: 1px solid var(--tg-theme-button-color, #3390ec);
+            border-radius: 10px;
+            padding: 10px;
+            margin-top: 15px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .check-payment-button:active {
+            background-color: rgba(51, 144, 236, 0.1);
+        }
+
+        /* Улучшенные стили для сообщений об ошибках */
+        .error-message {
+            background-color: rgba(255, 87, 87, 0.1);
+            border-left: 4px solid #ff5757;
+            color: #e41e1e;
+            padding: 12px 15px;
+            margin: 15px 0;
+            border-radius: 0 8px 8px 0;
+            font-size: 14px;
+            line-height: 1.4;
+            transition: all 0.3s ease;
+        }
+
+        /* Инструкции по оплате */
+        .payment-instructions {
+            font-size: 14px;
+            color: var(--tg-theme-hint-color, #999999);
+            margin: 10px 0;
+            padding: 10px;
+            background-color: var(--tg-theme-secondary-bg-color, #f5f5f5);
+            border-radius: 8px;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Подписка на бота</h1>
+            <p class="welcome-message">Здравствуйте, <span id="userName">Пользователь</span>!</p>
+        </header>
+
+        <section class="subscription-info">
+            <h2>Выберите тариф</h2>
+            <p>Оформите подписку для получения полного доступа к возможностям бота</p>
+        </section>
+
+        <section id="plans" class="subscription-plans">
+            <!-- Здесь будут добавлены карточки тарифов динамически через JavaScript -->
+        </section>
+
+        <!-- Индикатор загрузки -->
+        <div id="loader" class="loader hidden">
+            <div class="spinner"></div>
+            <p>Загрузка...</p>
+        </div>
+
+        <!-- Сообщение об ошибке -->
+        <div id="errorMessage" class="error-message hidden"></div>
+
+        <!-- Модальное окно с формой оплаты -->
+        <div id="paymentModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Оплата подписки</h2>
+                    <button id="closePayment" class="close-button">&times;</button>
+                </div>
+                <div class="payment-instructions">
+                    <strong>Инструкция по оплате:</strong>
+                    <ol>
+                        <li>Введите данные вашей банковской карты в форму ниже</li>
+                        <li>Нажмите кнопку "Оплатить"</li>
+                        <li>Следуйте инструкциям вашего банка для подтверждения платежа</li>
+                        <li>После успешной оплаты вы увидите уведомление об активации подписки</li>
+                    </ol>
+                </div>
+                <div id="paymentFormContainer" class="payment-form">
+                    <!-- Здесь будет отображена форма оплаты -->
+                </div>
+                <!-- Кнопка для ручной проверки статуса платежа -->
+                <button id="checkPaymentButton" class="check-payment-button">
+                    Я уже оплатил, но не вижу подтверждения
+                </button>
+            </div>
+        </div>
+
+        <!-- Модальное окно успешной оплаты -->
+        <div id="successModal" class="modal hidden">
+            <div class="modal-content success-content">
+                <div class="success-icon">
+                    <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="40" cy="40" r="36" stroke="#4CAF50" stroke-width="6"/>
+                        <path d="M26 40L35 49L54 30" stroke="#4CAF50" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <h2>Оплата успешна!</h2>
+                <p>Ваша подписка активирована</p>
+                <button id="closeSuccess" class="success-button">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2023 Безопасная оплата через ЮKassa</p>
+    </footer>
+
+    <script src="script.js"></script>
+    <script>
+        // Дополнительный скрипт для отладки
+        document.addEventListener('DOMContentLoaded', function() {
+            // Добавляем обработчик тестовой кнопки
+            const testButton = document.getElementById('test-modal-button');
+            if (testButton) {
+                testButton.addEventListener('click', function() {
+                    const modal = document.getElementById('success-modal');
+                    if (modal) {
+                        modal.classList.remove('hidden');
+                        modal.removeAttribute('style');
+                        modal.classList.add('modal-visible');
+                    } else {
+                        alert('Модальное окно не найдено!');
+                    }
+                });
+                
+                // Делаем кнопку видимой в режиме отладки
+                if (window.location.hostname === 'localhost') {
+                    testButton.style.display = 'block';
+                }
+            }
+        });
+    </script>
+</body>
+</html> 
