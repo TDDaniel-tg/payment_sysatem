@@ -15,6 +15,9 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname)));
 
+// URL API подписок бота (используем переменную окружения или дефолтное значение)
+const BOT_API_URL = process.env.BOT_API_URL || 'https://optimizator-production.up.railway.app';
+
 // Для хранения заказов (в реальном приложении используйте базу данных)
 const orders = {};
 
@@ -450,8 +453,7 @@ app.post('/api/activate-subscription', async (req, res) => {
         // Если платеж успешен или это тестовый режим, активируем подписку
         if (paymentStatus === 'succeeded' || orderId.startsWith('order_') || isTestMode) {
             // Формируем URL для запроса к Боту
-            const botApiUrl = process.env.BOT_API_URL || 'http://localhost:5000';
-            const activationEndpoint = `${botApiUrl}/add_subscription`;
+            const activationEndpoint = `${BOT_API_URL}/add_subscription`;
             
             // Отправляем данные в API Бота для активации подписки
             try {

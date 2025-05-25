@@ -51,16 +51,20 @@ function initUserData() {
         console.log('Получен user_id из start_param:', userIdFromBot);
     }
     
+    // Также проверяем URL параметры для совместимости
+    const urlParams = new URLSearchParams(window.location.search);
+    const userIdFromUrl = urlParams.get('user_id') || urlParams.get('userId');
+    
     // Пытаемся получить данные из Telegram WebApp
     if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-        CONFIG.userId = userIdFromBot || tg.initDataUnsafe.user.id;
+        CONFIG.userId = userIdFromBot || userIdFromUrl || tg.initDataUnsafe.user.id;
         CONFIG.userName = tg.initDataUnsafe.user.first_name;
         console.log('Получены данные пользователя из Telegram:', CONFIG.userId, CONFIG.userName);
     } else {
-        // Пытаемся получить из URL параметров
-        CONFIG.userId = userIdFromBot || getQueryParam('userId');
-        CONFIG.userName = getQueryParam('userName');
-        console.log('Получены данные пользователя из URL:', CONFIG.userId, CONFIG.userName);
+        // Пытаемся получить из URL параметров или start_param
+        CONFIG.userId = userIdFromBot || userIdFromUrl;
+        CONFIG.userName = urlParams.get('userName') || urlParams.get('user_name');
+        console.log('Получены данные пользователя из URL/start_param:', CONFIG.userId, CONFIG.userName);
     }
 
     // Если всё еще нет userId, создаем анонимный идентификатор
@@ -77,7 +81,9 @@ function initUserData() {
     // Логируем финальные значения
     console.log('Финальные данные пользователя:', {
         userId: CONFIG.userId,
-        userName: CONFIG.userName
+        userName: CONFIG.userName,
+        startParam: startApp,
+        urlUserId: userIdFromUrl
     });
 }
 
@@ -233,84 +239,111 @@ function initEventListeners() {
 }
 
 // Функция для обработки успешного платежа
-function handleSuccessfulPayment(orderId) {
-    console.log('Обработка успешного платежа:', orderId);
-    
-    // Проверяем, был ли уже обработан этот платеж
-    if (document.getElementById('successModal') && 
-        !document.getElementById('successModal').classList.contains('hidden')) {
-        console.log('Платеж уже обработан, пропускаем повторное уведомление');
-        return;
-    }
-    
-    // Остановка всех проверок статуса платежа
-    stopPaymentChecks();
-    
-    // Закрываем модальное окно с формой оплаты
-    const paymentModal = document.getElementById('paymentModal');
-    if (paymentModal) {
-        paymentModal.classList.add('hidden');
-    }
-    
-    // Скрываем индикатор загрузки
-    hideLoader();
-    
-    // Отправляем данные об успешной оплате на сервер для активации подписки
-    // Получаем информацию о текущем плане
-    const activePlan = PLANS.find(plan => plan.id === localStorage.getItem('selectedPlanId')) || PLANS[1]; // По умолчанию Стандартный план
-    
-    // Уведомляем сервер об успешной оплате и активации подписки
-    fetch(`${CONFIG.apiUrl}/api/activate-subscription`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            userId: CONFIG.userId,
-            orderId: orderId,
-            planName: activePlan.name,
-            planDuration: activePlan.id === 'premium' ? 90 : 30 // Для премиум 3 месяца, для остальных 1 месяц
-        })
-    }).then(response => {
-        if (!response.ok) {
-            throw new Error('Ошибка активации подписки');
+async function handleSuccessfulPayment(orderId) {
+    try {
+        console.log(`Обработка успешного платежа: ${orderId}`);
+        
+        // Остановка всех проверок статуса платежа
+        stopPaymentChecks();
+        
+        // Закрываем модальное окно с формой оплаты
+        const paymentModal = document.getElementById('paymentModal');
+        if (paymentModal) {
+            paymentModal.classList.add('hidden');
         }
-        return response.json();
-    }).then(data => {
-        console.log('Подписка успешно активирована:', data);
-    }).catch(error => {
-        console.error('Ошибка при активации подписки:', error);
-        // Даже при ошибке активации мы показываем пользователю, что всё успешно
-        // Администратор сможет активировать подписку вручную
-    }).finally(() => {
+        
+        // Скрываем индикатор загрузки
+        hideLoader();
+        
+        // Получаем информацию о заказе из локального хранилища или определяем план по умолчанию
+        let planName = 'Стандарт';
+        let planDuration = 30;
+        
+        // Используем сохраненную информацию о плане, если она доступна
+        if (window.selectedPlan) {
+            planName = window.selectedPlan.name;
+            // Определяем продолжительность на основе плана
+            if (window.selectedPlan.id === 'basic') {
+                planDuration = 30;
+            } else if (window.selectedPlan.id === 'premium') {
+                planDuration = 90;
+            } else {
+                planDuration = 30; // стандартный план
+            }
+        } else {
+            // Пытаемся определить план из ID заказа или других источников
+            if (orderId.includes('basic')) {
+                planName = 'Базовый';
+                planDuration = 30;
+            } else if (orderId.includes('premium')) {
+                planName = 'Премиум';
+                planDuration = 90;
+            }
+        }
+        
+        // Активируем подписку через API платежной системы
+        const subscriptionResponse = await fetch(`${CONFIG.apiUrl}/api/activate-subscription`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                userId: CONFIG.userId,
+                orderId: orderId,
+                planName: planName,
+                planDuration: planDuration
+            })
+        });
+        
+        const subscriptionData = await subscriptionResponse.json();
+        
+        if (!subscriptionResponse.ok || !subscriptionData.success) {
+            throw new Error(subscriptionData.error || 'Не удалось активировать подписку');
+        }
+        
+        console.log('Подписка успешно активирована:', subscriptionData);
+        
         // Используем нативный попап Telegram вместо модального окна
         if (tg.showPopup && typeof tg.showPopup === 'function') {
             // Показываем попап через Telegram Web App API
             tg.showPopup({
-                title: 'Оплата успешна!',
-                message: 'Ваша подписка успешно активирована',
+                title: '✅ Оплата успешна!',
+                message: `Ваша подписка "${planName}" успешно активирована на ${planDuration} дней`,
                 buttons: [{ type: 'close' }]
-            }, function() {
-                // После закрытия попапа закрываем мини-приложение
+            }, () => {
+                // Закрываем приложение после закрытия попапа
                 tg.close();
             });
         } else {
-            // Запасной вариант - показываем наше модальное окно
-            showSuccessModal();
+            // Если не удалось показать через Telegram API, используем обычное модальное окно
+            const successModal = document.getElementById('successModal');
+            if (successModal) {
+                // Обновляем текст в модальном окне
+                const modalTitle = successModal.querySelector('h2');
+                const modalText = successModal.querySelector('p');
+                if (modalTitle) modalTitle.textContent = 'Оплата успешна!';
+                if (modalText) modalText.textContent = `Ваша подписка "${planName}" активирована на ${planDuration} дней`;
+                
+                successModal.classList.remove('hidden');
+                successModal.classList.add('modal-visible');
+            }
             
-            // Показываем кнопку Закрыть в нижней части экрана
-            tg.MainButton.setText('ЗАКРЫТЬ');
-            tg.MainButton.show();
-            tg.MainButton.onClick(() => {
+            // Закрываем приложение через 3 секунды
+            setTimeout(() => {
                 tg.close();
-            });
+            }, 3000);
         }
         
-        // Скрываем кнопку Назад
-        if (tg.BackButton) {
-            tg.BackButton.hide();
+    } catch (error) {
+        console.error('Ошибка при обработке успешного платежа:', error);
+        
+        // Показываем ошибку пользователю
+        if (tg.showAlert && typeof tg.showAlert === 'function') {
+            tg.showAlert(`Ошибка при активации подписки: ${error.message}`);
+        } else {
+            showError(`Ошибка при активации подписки: ${error.message}`);
         }
-    });
+    }
 }
 
 // Создание карточки тарифного плана
@@ -339,6 +372,9 @@ function createPlanCard(plan) {
 async function handlePlanSelection(plan) {
     console.log(`Выбран план "${plan.name}" за ${plan.price} ₽`);
     
+    // Сохраняем информацию о выбранном плане в глобальной переменной
+    window.selectedPlan = plan;
+    
     // Показываем индикатор загрузки
     showLoader();
     
@@ -354,8 +390,8 @@ async function handlePlanSelection(plan) {
         
         console.log('Отправляем запрос на создание платежа с пользователем:', CONFIG.userId);
         
-        // Отправляем запрос на создание платежа
-        const paymentData = await createPayment(plan.price, plan.name, CONFIG.userId);
+        // Отправляем запрос на создание платежа с информацией о плане
+        const paymentData = await createPayment(plan.price, plan.name, CONFIG.userId, plan);
         console.log('Данные платежа:', paymentData);
         
         if (!paymentData || paymentData.error) {
@@ -404,7 +440,7 @@ async function handlePlanSelection(plan) {
 }
 
 // Функция для создания платежа на сервере
-async function createPayment(amount, planName, userId) {
+async function createPayment(amount, planName, userId, plan) {
     try {
         console.log(`Создание платежа: ${amount} руб., план: ${planName}, пользователь: ${userId}`);
         
@@ -431,7 +467,8 @@ async function createPayment(amount, planName, userId) {
                 planName: planName,
                 userId: userId,
                 description: `Подписка "${planName}"`,
-                email: email // Добавляем email для чека
+                email: email, // Добавляем email для чека
+                plan: plan
             })
         });
         
