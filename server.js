@@ -23,8 +23,8 @@ const orders = {};
 
 // Инициализация ЮKassa
 // ТЕСТОВЫЕ ДАННЫЕ для разработки и отладки
-const shopId = '1056481'; // ID тестового магазина ЮKassa
-const secretKey = 'test_V-O9LYfI9YkZuU-9vzpJMzkllIuDZ2mI5DoD5o2qImg'; // Тестовый секретный ключ
+const shopId = '1086529'; // ID тестового магазина ЮKassa
+const secretKey = 'test_fItob0t2XOZPQETIa7npqoKf5PsxbXlrMTHV88P4WZA'; // Тестовый секретный ключ
 
 // Режим работы - всегда тестовый для безопасности
 const isTestMode = true;
