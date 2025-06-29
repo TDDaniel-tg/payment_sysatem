@@ -9,11 +9,44 @@ const CONFIG = {
     isDev: false // Всегда отключен в боевом режиме
 };
 
-// Подписки и их цены
+// Подписки и их цены - оптимизированные тарифы для генерации скриптов
 const PLANS = [
-    { id: 'basic', name: 'Базовый', price: 20, description: 'Доступ к основным функциям бота на 1 месяц' },
-    { id: 'standard', name: 'Стандартный', price: 499, description: 'Доступ ко всем функциям бота на 1 месяц' },
-    { id: 'premium', name: 'Премиум', price: 999, description: 'Доступ ко всем функциям бота на 3 месяца со скидкой' }
+    { 
+        id: 'starter', 
+        name: 'Стартер', 
+        price: 99, 
+        description: '5 генераций скриптов оптимизации',
+        generations: 5,
+        duration: 30,
+        popular: false
+    },
+    { 
+        id: 'basic', 
+        name: 'Базовый', 
+        price: 199, 
+        description: '15 генераций скриптов + приоритетная поддержка',
+        generations: 15,
+        duration: 30,
+        popular: true
+    },
+    { 
+        id: 'pro', 
+        name: 'Профессиональный', 
+        price: 399, 
+        description: '50 генераций скриптов + расширенная оптимизация',
+        generations: 50,
+        duration: 30,
+        popular: false
+    },
+    { 
+        id: 'unlimited', 
+        name: 'Безлимитный', 
+        price: 699, 
+        description: 'Неограниченные генерации на месяц + VIP поддержка',
+        generations: -1, // -1 означает безлимит
+        duration: 30,
+        popular: false
+    }
 ];
 
 // Глобальные переменные для отслеживания платежа
@@ -349,13 +382,20 @@ async function handleSuccessfulPayment(orderId) {
 // Создание карточки тарифного плана
 function createPlanCard(plan) {
     const card = document.createElement('div');
-    card.className = 'plan-card';
+    card.className = `plan-card ${plan.popular ? 'popular' : ''}`;
     card.id = `plan-${plan.id}`;
 
+    // Формируем информацию о количестве генераций
+    const generationsText = plan.generations === -1 ? 'Безлимит' : `${plan.generations} генераций`;
+    const popularBadge = plan.popular ? '<div class="popular-badge">Популярный</div>' : '';
+
     card.innerHTML = `
+        ${popularBadge}
         <h3>${plan.name}</h3>
         <p class="price">${plan.price} ₽</p>
+        <p class="generations">${generationsText}</p>
         <p class="description">${plan.description}</p>
+        <p class="duration">Срок: ${plan.duration} дней</p>
         <button class="buy-btn" data-plan-id="${plan.id}" data-plan-name="${plan.name}" data-price="${plan.price}">
             Оформить
         </button>
