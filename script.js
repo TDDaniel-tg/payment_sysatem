@@ -9,41 +9,32 @@ const CONFIG = {
     isDev: false // Всегда отключен в боевом режиме
 };
 
-// Подписки и их цены - оптимизированные тарифы для генерации скриптов
+// Подписки и их цены - оплата за скрипты
 const PLANS = [
     { 
-        id: 'starter', 
-        name: 'Стартер', 
-        price: 99, 
-        description: '5 генераций скриптов оптимизации',
-        generations: 5,
+        id: 'single', 
+        name: '1 скрипт', 
+        price: 49, 
+        description: 'Создание одного скрипта оптимизации',
+        generations: 1,
         duration: 30,
         popular: false
     },
     { 
-        id: 'basic', 
-        name: 'Базовый', 
-        price: 199, 
-        description: '15 генераций скриптов + приоритетная поддержка',
-        generations: 15,
+        id: 'triple', 
+        name: '3 скрипта', 
+        price: 129, 
+        description: '3 скрипта оптимизации + экономия 15%',
+        generations: 3,
         duration: 30,
         popular: true
     },
     { 
-        id: 'pro', 
-        name: 'Профессиональный', 
+        id: 'pack', 
+        name: '10 скриптов', 
         price: 399, 
-        description: '50 генераций скриптов + расширенная оптимизация',
-        generations: 50,
-        duration: 30,
-        popular: false
-    },
-    { 
-        id: 'unlimited', 
-        name: 'Безлимитный', 
-        price: 699, 
-        description: 'Неограниченные генерации на месяц + VIP поддержка',
-        generations: -1, // -1 означает безлимит
+        description: '10 скриптов + максимальная экономия 20%',
+        generations: 10,
         duration: 30,
         popular: false
     }

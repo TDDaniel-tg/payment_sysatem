@@ -449,17 +449,15 @@ app.post('/api/activate-subscription', async (req, res) => {
         if (paymentStatus === 'succeeded' || orderId.startsWith('order_') || isTestMode) {
             // Определяем лимит генераций по плану
             const generationsMap = {
-                'Стартер': 5,
-                'Базовый': 15,
-                'Профессиональный': 50,
-                'Безлимитный': -1,
-                'starter': 5,
-                'basic': 15,
-                'pro': 50,
-                'unlimited': -1
+                '1 скрипт': 1,
+                '3 скрипта': 3,
+                '10 скриптов': 10,
+                'single': 1,
+                'triple': 3,
+                'pack': 10
             };
             
-            const generationsLimit = generationsMap[planName] || 15; // По умолчанию базовый план
+            const generationsLimit = generationsMap[planName] || 1; // По умолчанию 1 скрипт
             
             // Формируем URL для запроса к Боту
             const activationEndpoint = `${BOT_API_URL}/add_subscription`;
